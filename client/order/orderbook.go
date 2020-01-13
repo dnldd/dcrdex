@@ -44,38 +44,38 @@ type cachedOrderNote struct {
 
 // OrderBook represents a client tracked order book.
 type OrderBook struct {
-	seq          uint64
-	marketID     string
-	noteQueue    []*cachedOrderNote
-	noteQueueMtx sync.Mutex
-	orders       map[order.OrderID]*Order
-	ordersMtx    sync.Mutex
-	buys         *bookSide
-	sells        *bookSide
-	synced       bool
-	syncedMtx    sync.Mutex
+	Seq          uint64
+	MarketID     string
+	NoteQueue    []*cachedOrderNote
+	NoteQueueMtx sync.Mutex
+	Orders       map[order.OrderID]*Order
+	OrdersMtx    sync.Mutex
+	Buys         *bookSide
+	Sells        *bookSide
+	Synced       bool
+	SyncedMtx    sync.Mutex
 }
 
 // NewOrderBook creates a new order book.
 func NewOrderBook() *OrderBook {
 	ob := &OrderBook{
-		noteQueue: make([]*cachedOrderNote, 0, defaultQueueCapacity),
+		NoteQueue: make([]*cachedOrderNote, 0, defaultQueueCapacity),
 	}
 	return ob
 }
 
 // setSynced sets the synced state of the order book.
 func (ob *OrderBook) setSynced(value bool) {
-	ob.syncedMtx.Lock()
-	ob.synced = value
-	ob.syncedMtx.Unlock()
+	ob.SyncedMtx.Lock()
+	ob.Synced = value
+	ob.SyncedMtx.Unlock()
 }
 
 // isSynced returns the synced state of the order book.
 func (ob *OrderBook) isSynced() bool {
-	ob.syncedMtx.Lock()
-	defer ob.syncedMtx.Unlock()
-	return ob.synced
+	ob.SyncedMtx.Lock()
+	defer ob.SyncedMtx.Unlock()
+	return ob.Synced
 }
 
 // cacheOrderNote caches an order note.
@@ -87,9 +87,9 @@ func (ob *OrderBook) cacheOrderNote(route string, entry interface{}) error {
 		note.Route = route
 		note.OrderNote = entry
 
-		ob.noteQueueMtx.Lock()
-		ob.noteQueue = append(ob.noteQueue, note)
-		ob.noteQueueMtx.Unlock()
+		ob.NoteQueueMtx.Lock()
+		ob.NoteQueue = append(ob.NoteQueue, note)
+		ob.NoteQueueMtx.Unlock()
 
 		return nil
 
@@ -101,12 +101,12 @@ func (ob *OrderBook) cacheOrderNote(route string, entry interface{}) error {
 // processCachedNotes processes all cached notes, each processed note is
 // removed from the cache.
 func (ob *OrderBook) processCachedNotes() error {
-	ob.noteQueueMtx.Lock()
-	defer ob.noteQueueMtx.Unlock()
+	ob.NoteQueueMtx.Lock()
+	defer ob.NoteQueueMtx.Unlock()
 
-	for len(ob.noteQueue) > 0 {
+	for len(ob.NoteQueue) > 0 {
 		var entry *cachedOrderNote
-		entry, ob.noteQueue = ob.noteQueue[0], ob.noteQueue[1:]
+		entry, ob.NoteQueue = ob.NoteQueue[0], ob.NoteQueue[1:]
 
 		switch entry.Route {
 		case msgjson.BookOrderRoute:
@@ -147,11 +147,11 @@ func (ob *OrderBook) Sync(snapshot *msgjson.OrderBook) error {
 		return fmt.Errorf("order book is already synced")
 	}
 
-	atomic.StoreUint64(&ob.seq, snapshot.Seq)
-	ob.marketID = snapshot.MarketID
-	ob.orders = make(map[order.OrderID]*Order)
-	ob.buys = NewBookSide(descending)
-	ob.sells = NewBookSide(ascending)
+	atomic.StoreUint64(&ob.Seq, snapshot.Seq)
+	ob.MarketID = snapshot.MarketID
+	ob.Orders = make(map[order.OrderID]*Order)
+	ob.Buys = NewBookSide(descending)
+	ob.Sells = NewBookSide(ascending)
 
 	for _, o := range snapshot.Orders {
 		if len(o.OrderID) != order.OrderIDSize {
@@ -168,17 +168,17 @@ func (ob *OrderBook) Sync(snapshot *msgjson.OrderBook) error {
 			Time:     o.Time,
 		}
 
-		ob.ordersMtx.Lock()
-		ob.orders[order.OrderID] = order
-		ob.ordersMtx.Unlock()
+		ob.OrdersMtx.Lock()
+		ob.Orders[order.OrderID] = order
+		ob.OrdersMtx.Unlock()
 
 		// Append the order to the order book.
 		switch o.Side {
 		case msgjson.BuyOrderNum:
-			ob.buys.Add(order)
+			ob.Buys.Add(order)
 
 		case msgjson.SellOrderNum:
-			ob.sells.Add(order)
+			ob.Sells.Add(order)
 
 		default:
 			return fmt.Errorf("unknown order side provided: %d", o.Side)
@@ -199,7 +199,7 @@ func (ob *OrderBook) Sync(snapshot *msgjson.OrderBook) error {
 // book is the workhorse of the exported Book function. It allows booking
 // cached and uncached order notes.
 func (ob *OrderBook) book(note *msgjson.BookOrderNote, cached bool) error {
-	if ob.marketID != note.MarketID {
+	if ob.MarketID != note.MarketID {
 		return fmt.Errorf("invalid note market id %s", note.MarketID)
 	}
 
@@ -211,17 +211,17 @@ func (ob *OrderBook) book(note *msgjson.BookOrderNote, cached bool) error {
 	}
 
 	// Discard a note if the order book is synced past it.
-	if ob.seq > note.Seq {
+	if ob.Seq > note.Seq {
 		return nil
 	}
 
-	seq := atomic.AddUint64(&ob.seq, 1)
+	seq := atomic.AddUint64(&ob.Seq, 1)
 	if seq != note.Seq {
 		return fmt.Errorf("order book out of sync, %d < %d", seq, note.Seq)
 	}
 
 	if len(note.OrderID) != order.OrderIDSize {
-		return fmt.Errorf("order id length is not %d", len(note.OrderID))
+		return fmt.Errorf("order id length is not %d", order.OrderIDSize)
 	}
 
 	var oid order.OrderID
@@ -234,17 +234,17 @@ func (ob *OrderBook) book(note *msgjson.BookOrderNote, cached bool) error {
 		Rate:     note.Rate,
 	}
 
-	ob.ordersMtx.Lock()
-	ob.orders[order.OrderID] = order
-	ob.ordersMtx.Unlock()
+	ob.OrdersMtx.Lock()
+	ob.Orders[order.OrderID] = order
+	ob.OrdersMtx.Unlock()
 
 	// Add the order to its associated books side.
 	switch order.Side {
 	case msgjson.BuyOrderNum:
-		ob.buys.Add(order)
+		ob.Buys.Add(order)
 
 	case msgjson.SellOrderNum:
-		ob.sells.Add(order)
+		ob.Sells.Add(order)
 
 	default:
 		return fmt.Errorf("unknown order side provided: %d", order.Side)
@@ -261,7 +261,7 @@ func (ob *OrderBook) Book(note *msgjson.BookOrderNote) error {
 // unbook is the workhorse of the exported Unbook function. It allows unbooking
 // cached and uncached order notes.
 func (ob *OrderBook) unbook(note *msgjson.UnbookOrderNote, cached bool) error {
-	if ob.marketID != note.MarketID {
+	if ob.MarketID != note.MarketID {
 		return fmt.Errorf("invalid note market id %s", note.MarketID)
 	}
 
@@ -273,23 +273,23 @@ func (ob *OrderBook) unbook(note *msgjson.UnbookOrderNote, cached bool) error {
 	}
 
 	// Discard a note if the order book is synced past it.
-	if ob.seq > note.Seq {
+	if ob.Seq > note.Seq {
 		return nil
 	}
 
-	seq := atomic.AddUint64(&ob.seq, 1)
+	seq := atomic.AddUint64(&ob.Seq, 1)
 	if seq != note.Seq {
 		return fmt.Errorf("order book out of sync, %d < %d", seq, note.Seq)
 	}
 
 	if len(note.OrderID) != order.OrderIDSize {
-		return fmt.Errorf("order id length is not %d", len(note.OrderID))
+		return fmt.Errorf("order id length is not %d", order.OrderIDSize)
 	}
 
 	var oid order.OrderID
 	copy(oid[:], note.OrderID)
 
-	order, ok := ob.orders[oid]
+	order, ok := ob.Orders[oid]
 	if !ok {
 		return fmt.Errorf("no order found with id %s", oid.String())
 	}
@@ -297,13 +297,13 @@ func (ob *OrderBook) unbook(note *msgjson.UnbookOrderNote, cached bool) error {
 	// Remove the order from its associated book side.
 	switch order.Side {
 	case msgjson.BuyOrderNum:
-		err := ob.buys.Remove(order)
+		err := ob.Buys.Remove(order)
 		if err != nil {
 			return err
 		}
 
 	case msgjson.SellOrderNum:
-		err := ob.sells.Remove(order)
+		err := ob.Sells.Remove(order)
 		if err != nil {
 			return err
 		}
@@ -312,9 +312,9 @@ func (ob *OrderBook) unbook(note *msgjson.UnbookOrderNote, cached bool) error {
 		return fmt.Errorf("unknown order side provided: %d", order.Side)
 	}
 
-	ob.ordersMtx.Lock()
-	delete(ob.orders, oid)
-	ob.ordersMtx.Unlock()
+	ob.OrdersMtx.Lock()
+	delete(ob.Orders, oid)
+	ob.OrdersMtx.Unlock()
 
 	return nil
 }
@@ -332,10 +332,10 @@ func (ob *OrderBook) BestNOrders(n uint64, side uint8) ([]*Order, error) {
 
 	switch side {
 	case msgjson.BuyOrderNum:
-		return ob.buys.BestNOrders(n)
+		return ob.Buys.BestNOrders(n)
 
 	case msgjson.SellOrderNum:
-		return ob.sells.BestNOrders(n)
+		return ob.Sells.BestNOrders(n)
 
 	default:
 		return nil, fmt.Errorf("unknown side provided: %d", side)
@@ -350,10 +350,10 @@ func (ob *OrderBook) BestFill(qty uint64, side uint8) ([]*fill, error) {
 
 	switch side {
 	case msgjson.BuyOrderNum:
-		return ob.buys.BestFill(qty)
+		return ob.Buys.BestFill(qty)
 
 	case msgjson.SellOrderNum:
-		return ob.sells.BestFill(qty)
+		return ob.Sells.BestFill(qty)
 
 	default:
 		return nil, fmt.Errorf("unknown side provided: %d", side)

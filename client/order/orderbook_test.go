@@ -58,23 +58,23 @@ func makeCachedUnbookOrderNote(orderNote *msgjson.UnbookOrderNote) *cachedOrderN
 
 func makeOrderBook(seq uint64, marketID string, orders []*Order, cachedOrders []*cachedOrderNote, synced bool) *OrderBook {
 	ob := &OrderBook{
-		seq:       seq,
-		marketID:  marketID,
-		noteQueue: cachedOrders,
-		orders:    make(map[order.OrderID]*Order),
-		buys:      NewBookSide(descending),
-		sells:     NewBookSide(ascending),
+		Seq:       seq,
+		MarketID:  marketID,
+		NoteQueue: cachedOrders,
+		Orders:    make(map[order.OrderID]*Order),
+		Buys:      NewBookSide(descending),
+		Sells:     NewBookSide(ascending),
 	}
 
 	for _, order := range orders {
-		ob.orders[order.OrderID] = order
+		ob.Orders[order.OrderID] = order
 
 		switch order.Side {
 		case msgjson.BuyOrderNum:
-			ob.buys.Add(order)
+			ob.Buys.Add(order)
 
 		case msgjson.SellOrderNum:
-			ob.sells.Add(order)
+			ob.Sells.Add(order)
 		}
 	}
 
@@ -213,7 +213,7 @@ func TestOrderBookSync(t *testing.T) {
 	}
 
 	for idx, tc := range tests {
-		tc.orderBook.noteQueue = tc.initialQueueState
+		tc.orderBook.NoteQueue = tc.initialQueueState
 		tc.orderBook.setSynced(tc.initialSyncState)
 		err := tc.orderBook.Sync(tc.snapshot)
 		if (err != nil) != tc.wantErr {
@@ -222,37 +222,37 @@ func TestOrderBookSync(t *testing.T) {
 		}
 
 		if !tc.wantErr {
-			if tc.orderBook.seq != tc.expected.seq {
+			if tc.orderBook.Seq != tc.expected.Seq {
 				t.Fatalf("[OrderBook.Sync] #%d: expected sequence of %d,"+
-					" got %d", idx+1, tc.expected.seq, tc.orderBook.seq)
+					" got %d", idx+1, tc.expected.Seq, tc.orderBook.Seq)
 			}
 
-			if tc.orderBook.marketID != tc.expected.marketID {
+			if tc.orderBook.MarketID != tc.expected.MarketID {
 				t.Fatalf("[OrderBook.Sync] #%d: expected market id of %s,"+
-					" got %s", idx+1, tc.expected.marketID, tc.orderBook.marketID)
+					" got %s", idx+1, tc.expected.MarketID, tc.orderBook.MarketID)
 			}
 
-			if len(tc.orderBook.orders) != len(tc.expected.orders) {
+			if len(tc.orderBook.Orders) != len(tc.expected.Orders) {
 				t.Fatalf("[OrderBook.Sync] #%d: expected orders size of %d,"+
-					" got %d", idx+1, len(tc.expected.orders), len(tc.orderBook.orders))
+					" got %d", idx+1, len(tc.expected.Orders), len(tc.orderBook.Orders))
 			}
 
-			if len(tc.orderBook.buys.bins) != len(tc.expected.buys.bins) {
+			if len(tc.orderBook.Buys.bins) != len(tc.expected.Buys.bins) {
 				t.Fatalf("[OrderBook.Sync] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.buys.bins),
-					len(tc.orderBook.buys.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Buys.bins),
+					len(tc.orderBook.Buys.bins))
 			}
 
-			if len(tc.orderBook.sells.bins) != len(tc.expected.sells.bins) {
+			if len(tc.orderBook.Sells.bins) != len(tc.expected.Sells.bins) {
 				t.Fatalf("[OrderBook.Sync] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.sells.bins),
-					len(tc.orderBook.sells.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Sells.bins),
+					len(tc.orderBook.Sells.bins))
 			}
 
-			if len(tc.orderBook.noteQueue) != len(tc.expected.noteQueue) {
+			if len(tc.orderBook.NoteQueue) != len(tc.expected.NoteQueue) {
 				t.Fatalf("[OrderBook.Sync] #%d: expected note queue "+
-					"size of %d, got %d", idx+1, len(tc.expected.noteQueue),
-					len(tc.orderBook.noteQueue))
+					"size of %d, got %d", idx+1, len(tc.expected.NoteQueue),
+					len(tc.orderBook.NoteQueue))
 			}
 		}
 	}
@@ -387,37 +387,37 @@ func TestOrderBookBook(t *testing.T) {
 		}
 
 		if !tc.wantErr {
-			if tc.orderBook.seq != tc.expected.seq {
+			if tc.orderBook.Seq != tc.expected.Seq {
 				t.Fatalf("[OrderBook.Book] #%d: expected sequence of %d,"+
-					" got %d", idx+1, tc.expected.seq, tc.orderBook.seq)
+					" got %d", idx+1, tc.expected.Seq, tc.orderBook.Seq)
 			}
 
-			if tc.orderBook.marketID != tc.expected.marketID {
+			if tc.orderBook.MarketID != tc.expected.MarketID {
 				t.Fatalf("[OrderBook.Book] #%d: expected market id of %s,"+
-					" got %s", idx+1, tc.expected.marketID, tc.orderBook.marketID)
+					" got %s", idx+1, tc.expected.MarketID, tc.orderBook.MarketID)
 			}
 
-			if len(tc.orderBook.orders) != len(tc.expected.orders) {
+			if len(tc.orderBook.Orders) != len(tc.expected.Orders) {
 				t.Fatalf("[OrderBook.Book] #%d: expected orders size of %d,"+
-					" got %d", idx+1, len(tc.expected.orders), len(tc.orderBook.orders))
+					" got %d", idx+1, len(tc.expected.Orders), len(tc.orderBook.Orders))
 			}
 
-			if len(tc.orderBook.buys.bins) != len(tc.expected.buys.bins) {
+			if len(tc.orderBook.Buys.bins) != len(tc.expected.Buys.bins) {
 				t.Fatalf("[OrderBook.Book] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.buys.bins),
-					len(tc.orderBook.buys.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Buys.bins),
+					len(tc.orderBook.Buys.bins))
 			}
 
-			if len(tc.orderBook.sells.bins) != len(tc.expected.sells.bins) {
+			if len(tc.orderBook.Sells.bins) != len(tc.expected.Sells.bins) {
 				t.Fatalf("[OrderBook.Book] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.sells.bins),
-					len(tc.orderBook.sells.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Sells.bins),
+					len(tc.orderBook.Sells.bins))
 			}
 
-			if len(tc.orderBook.noteQueue) != len(tc.expected.noteQueue) {
+			if len(tc.orderBook.NoteQueue) != len(tc.expected.NoteQueue) {
 				t.Fatalf("[OrderBook.Book] #%d: expected note queue "+
-					"size of %d, got %d", idx+1, len(tc.expected.noteQueue),
-					len(tc.orderBook.noteQueue))
+					"size of %d, got %d", idx+1, len(tc.expected.NoteQueue),
+					len(tc.orderBook.NoteQueue))
 			}
 		}
 	}
@@ -550,37 +550,37 @@ func TestOrderBookUnbook(t *testing.T) {
 		}
 
 		if !tc.wantErr {
-			if tc.orderBook.seq != tc.expected.seq {
+			if tc.orderBook.Seq != tc.expected.Seq {
 				t.Fatalf("[OrderBook.Book] #%d: expected sequence of %d,"+
-					" got %d", idx+1, tc.expected.seq, tc.orderBook.seq)
+					" got %d", idx+1, tc.expected.Seq, tc.orderBook.Seq)
 			}
 
-			if tc.orderBook.marketID != tc.expected.marketID {
+			if tc.orderBook.MarketID != tc.expected.MarketID {
 				t.Fatalf("[OrderBook.Book] #%d: expected market id of %s,"+
-					" got %s", idx+1, tc.expected.marketID, tc.orderBook.marketID)
+					" got %s", idx+1, tc.expected.MarketID, tc.orderBook.MarketID)
 			}
 
-			if len(tc.orderBook.orders) != len(tc.expected.orders) {
+			if len(tc.orderBook.Orders) != len(tc.expected.Orders) {
 				t.Fatalf("[OrderBook.Book] #%d: expected orders size of %d,"+
-					" got %d", idx+1, len(tc.expected.orders), len(tc.orderBook.orders))
+					" got %d", idx+1, len(tc.expected.Orders), len(tc.orderBook.Orders))
 			}
 
-			if len(tc.orderBook.buys.bins) != len(tc.expected.buys.bins) {
+			if len(tc.orderBook.Buys.bins) != len(tc.expected.Buys.bins) {
 				t.Fatalf("[OrderBook.Book] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.buys.bins),
-					len(tc.orderBook.buys.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Buys.bins),
+					len(tc.orderBook.Buys.bins))
 			}
 
-			if len(tc.orderBook.sells.bins) != len(tc.expected.sells.bins) {
+			if len(tc.orderBook.Sells.bins) != len(tc.expected.Sells.bins) {
 				t.Fatalf("[OrderBook.Book] #%d: expected buys book side "+
-					"size of %d, got %d", idx+1, len(tc.expected.sells.bins),
-					len(tc.orderBook.sells.bins))
+					"size of %d, got %d", idx+1, len(tc.expected.Sells.bins),
+					len(tc.orderBook.Sells.bins))
 			}
 
-			if len(tc.orderBook.noteQueue) != len(tc.expected.noteQueue) {
+			if len(tc.orderBook.NoteQueue) != len(tc.expected.NoteQueue) {
 				t.Fatalf("[OrderBook.Book] #%d: expected note queue "+
-					"size of %d, got %d", idx+1, len(tc.expected.noteQueue),
-					len(tc.orderBook.noteQueue))
+					"size of %d, got %d", idx+1, len(tc.expected.NoteQueue),
+					len(tc.orderBook.NoteQueue))
 			}
 		}
 	}
